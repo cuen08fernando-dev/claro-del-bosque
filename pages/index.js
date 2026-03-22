@@ -46,7 +46,7 @@ export default function App(){
   const[gastos,setGastos]=useState([]);
   const[cortes,setCortes]=useState([]);
   const[cupones,setCupones]=useState([]);
-  const[pdf,setPdf]=useState(null);
+  const[pdf,setPdf]=useState(null); // {svg, data} or null
   const[ok,setOk]=useState(false);
   const[syncing,setSyncing]=useState(false);
   const[lastSync,setLastSync]=useState(null);
@@ -99,7 +99,19 @@ export default function App(){
         {vista==="cupones"&&<CupM cupones={cupones}/>}
         {vista==="resumen"&&<ResumM {...{reservas,ingresos,gastos,cortes,cupones}}/>}
       </main>
-      {pdf&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setPdf(null)}><div style={{background:"#fff",borderRadius:"16px 16px 0 0",padding:16,width:"100%",maxWidth:500,maxHeight:"85vh",overflow:"auto"}} onClick={e=>e.stopPropagation()}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><h3 style={{margin:0,color:C.dark,fontSize:16}}>Recibo</h3><div style={{display:"flex",gap:6}}><button onClick={()=>{const b=new Blob([pdf],{type:"image/svg+xml"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="recibo.svg";a.click();URL.revokeObjectURL(u);}} style={{background:C.dark,color:"#fff",border:"none",borderRadius:8,padding:"8px 14px",cursor:"pointer",fontSize:13}}>⬇</button><button onClick={()=>setPdf(null)} style={{background:"#eee",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:16}}>✕</button></div></div><div dangerouslySetInnerHTML={{__html:pdf}} style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"auto"}}/></div></div>)}
+      {pdf&&(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:1000,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>{setPdf(null);setVista("recepcion");}}>
+        <div style={{background:"#fff",borderRadius:"16px 16px 0 0",padding:16,width:"100%",maxWidth:500,maxHeight:"85vh",overflow:"auto"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <h3 style={{margin:0,color:C.dark,fontSize:16}}>Recibo generado ✅</h3>
+          <button onClick={()=>{setPdf(null);setVista("recepcion");}} style={{background:"#eee",border:"none",borderRadius:8,padding:"8px 12px",cursor:"pointer",fontSize:16}}>✕</button>
+        </div>
+        <div dangerouslySetInnerHTML={{__html:pdf.svg||pdf}} style={{border:`1px solid ${C.border}`,borderRadius:8,overflow:"auto"}}/>
+        <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:12}}>
+          {pdf.data&&<button onClick={()=>{const d=pdf.data;const msg=`🌲 *CLARO DEL BOSQUE*%0ACabañas, Mazamitla%0A━━━━━━━━━━━━━━%0A%0A📋 *Recibo de Reservación*%0AFolio: ${d.folio}%0A%0A👤 *Huésped:* ${d.huesped}%0A📞 ${d.telefono}%0A🏡 Cabaña: *${d.cabana}*%0A👥 ${d.huespedes} huésped(es)%0A%0A📅 *Llegada:* ${fmtF(d.llegada)} — 3:00 PM%0A📅 *Salida:* ${fmtF(d.salida)}%0A🌙 ${d.noches} noche(s)%0A%0A💰 *Total:* ${fmt$(d.total)}%0A✅ *Pagado:* ${fmt$(d.anticipo)} (${d.porcentajePago}%)%0A💳 Método: ${d.metodoPago}%0A${d.saldo>0?`⚠️ *Saldo pendiente:* ${fmt$(d.saldo)}%0A`:"✅ *Pagado completo*%0A"}%0ACheck-in: 3:00 PM | Check-out: 1:00 PM%0A¡Gracias por su reservación! 🌿`;const url=d.telefono?`https://wa.me/52${d.telefono.replace(/\D/g,"")}?text=${msg}`:`https://wa.me/?text=${msg}`;window.open(url,"_blank");setTimeout(()=>{setPdf(null);setVista("recepcion");},500);}} style={{width:"100%",padding:14,borderRadius:10,border:"none",cursor:"pointer",fontSize:16,fontWeight:700,background:"#25D366",color:"#fff"}}>📲 Enviar por WhatsApp</button>}
+          <button onClick={()=>{const b=new Blob([pdf.svg||pdf],{type:"image/svg+xml"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download="recibo.svg";a.click();URL.revokeObjectURL(u);}} style={{width:"100%",padding:12,borderRadius:10,border:`1px solid ${C.border}`,cursor:"pointer",fontSize:14,fontWeight:600,background:"#fff",color:C.dark}}>⬇ Descargar recibo</button>
+          <button onClick={()=>{setPdf(null);setVista("recepcion");}} style={{width:"100%",padding:14,borderRadius:10,border:"none",cursor:"pointer",fontSize:16,fontWeight:700,background:C.dark,color:"#fff"}}>✅ Listo</button>
+        </div>
+      </div></div>)}
     </div>
   </>);
 }
@@ -166,7 +178,8 @@ function ReservasM({reservas,sv,setReservas,ingresos,setIngresos,cortes,setCorte
     const nr=ei>=0?reservas.map((r,i)=>i===ei?{...r,...res,folio:r.folio}:r):[res,...reservas];
     sv("cdb-reservas",nr,setReservas);
     if(ei<0)sv("cdb-ingresos",[{fecha,concepto:`${f.cabana} — ${f.huesped}`,monto:antic,metodo:f.metodoPago,folio,tipo:f.porcentajePago==="100"?"Total":"Anticipo",id:Date.now()},...ingresos],setIngresos);
-    setPdf(genPDF({folio,huesped:f.huesped,telefono:f.telefono,cabana:f.cabana,huespedes:f.huespedes,llegada:f.llegada,salida:f.salida,noches,tarifa:tl,total,porcentajePago:f.porcentajePago,anticipo:antic,saldo,metodoPago:f.metodoPago,fechaRegistro:fecha}));
+    const pdfData={folio,huesped:f.huesped,telefono:f.telefono,cabana:f.cabana,huespedes:f.huespedes,llegada:f.llegada,salida:f.salida,noches,tarifa:tl,total,porcentajePago:f.porcentajePago,anticipo:antic,saldo,metodoPago:f.metodoPago,fechaRegistro:fecha};
+    setPdf({svg:genPDF(pdfData),data:pdfData});
     setF(empty);setEi(-1);setNs(1);setNm("");
   };
 
@@ -233,7 +246,7 @@ function ReservasM({reservas,sv,setReservas,ingresos,setIngresos,cortes,setCorte
 
     <h3 style={{color:C.dark,fontSize:15,margin:"14px 0 8px"}}>Activas ({activas.length})</h3>
     {activas.length===0&&<div style={{color:C.muted,textAlign:"center",padding:24}}>Sin reservaciones</div>}
-    {activas.map((r,i)=><div key={r.folio} style={{...sS,padding:"10px 12px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,color:C.dark,fontSize:13}}>{r.cabana} — {r.huesped}<span style={{marginLeft:6,fontSize:9,padding:"2px 6px",borderRadius:10,background:r.saldo>0?"#FFF3E0":"#E8F0E0",color:r.saldo>0?C.orange:C.success}}>{r.saldo>0?`$${r.saldo}`:"✓"}</span></div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{fmtF(r.llegada)} → {fmtF(r.salida)} · {r.noches}n · {fmt$(r.total)}</div></div><div style={{display:"flex",gap:3,flexShrink:0}}><button onClick={()=>setPdf(genPDF({folio:r.folio,huesped:r.huesped,telefono:r.telefono,cabana:r.cabana,huespedes:r.huespedes,llegada:r.llegada,salida:r.salida,noches:r.noches,tarifa:r.tarifaLabel,total:r.total,porcentajePago:r.porcentajePago,anticipo:r.anticipo,saldo:r.saldo,metodoPago:r.metodoPago,fechaRegistro:r.fechaRegistro}))} style={{background:"#F0EBE3",border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 8px",cursor:"pointer",fontSize:11}}>📄</button><button onClick={()=>setCC(r.folio)} style={bCancel}>❌</button></div></div></div>)}
+    {activas.map((r,i)=><div key={r.folio} style={{...sS,padding:"10px 12px"}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}><div style={{flex:1,minWidth:0}}><div style={{fontWeight:700,color:C.dark,fontSize:13}}>{r.cabana} — {r.huesped}<span style={{marginLeft:6,fontSize:9,padding:"2px 6px",borderRadius:10,background:r.saldo>0?"#FFF3E0":"#E8F0E0",color:r.saldo>0?C.orange:C.success}}>{r.saldo>0?`$${r.saldo}`:"✓"}</span></div><div style={{fontSize:11,color:C.muted,marginTop:2}}>{fmtF(r.llegada)} → {fmtF(r.salida)} · {r.noches}n · {fmt$(r.total)}</div></div><div style={{display:"flex",gap:3,flexShrink:0}}><button onClick={()=>{const pD={folio:r.folio,huesped:r.huesped,telefono:r.telefono,cabana:r.cabana,huespedes:r.huespedes,llegada:r.llegada,salida:r.salida,noches:r.noches,tarifa:r.tarifaLabel,total:r.total,porcentajePago:r.porcentajePago,anticipo:r.anticipo,saldo:r.saldo,metodoPago:r.metodoPago,fechaRegistro:r.fechaRegistro};setPdf({svg:genPDF(pD),data:pD});}} style={{background:"#F0EBE3",border:`1px solid ${C.border}`,borderRadius:8,padding:"6px 8px",cursor:"pointer",fontSize:11}}>📄</button><button onClick={()=>setCC(r.folio)} style={bCancel}>❌</button></div></div></div>)}
 
     {canceladas.length>0&&<><h3 style={{color:C.muted,fontSize:13,margin:"14px 0 6px"}}>Canceladas ({canceladas.length})</h3>{canceladas.map(r=><div key={r.folio} style={{...sS,padding:"8px 12px",opacity:0.6}}><div style={{fontSize:12,fontWeight:600,color:C.muted}}><s>{r.cabana} — {r.huesped}</s><span style={{marginLeft:6,fontSize:9,padding:"2px 6px",borderRadius:10,background:"#FFF3F0",color:C.danger}}>{r.tipoCancelacion==="pierde"?"Perdió anticipo":"Cupón"}</span></div><div style={{fontSize:10,color:C.muted}}>{fmtF(r.llegada)} → {fmtF(r.salida)}</div></div>)}</>}
   </div>);
@@ -348,4 +361,3 @@ function ResumM({reservas,ingresos,gastos,cortes,cupones}){
     {pend.length>0&&<div style={{background:"#FFF3E0",borderRadius:10,padding:10,border:"1px solid #FFE0B2"}}><div style={{fontWeight:700,color:C.orange,fontSize:12,marginBottom:4}}>⚠️ Saldos</div>{pend.map((r,i)=><div key={i} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",fontSize:11,borderBottom:"1px solid #FFE0B2"}}><span>{r.cabana} — {r.huesped}</span><span style={{fontWeight:700,color:C.orange}}>{fmt$(r.saldo)}</span></div>)}</div>}
   </div>);
 }
-
